@@ -1,10 +1,10 @@
 <template>
   <div class="container">
-      <Form @update="getComments"/>
+      <Form @addNew="addNew"/>
       <hr>
       <h3>Comments:</h3>
       <Comment
-        v-for="(comment, index) in comments"
+        v-for="(comment, index) in commentsSortedByDate"
         :key="index"
         :index="index"
         :comment="comment"
@@ -26,6 +26,11 @@ export default {
         Form,
         Comment
     },
+    computed: {
+        commentsSortedByDate () {
+            return this.comments.sort((a,b) => (a.createdAt.seconds > b.createdAt.seconds) ? 1 : ((b.createdAt.seconds > a.createdAt.seconds) ? -1 : 0)); 
+        }
+    },
     created () {
         this.getComments()
     },
@@ -35,10 +40,13 @@ export default {
                 .get()
                 .then((querySnapshot) => {
                     this.comments = []
-                    querySnapshot.forEach((doc) => {
-                        this.comments.push({ id: doc.id, ...doc.data() })
+                    querySnapshot.forEach(async (doc) => {
+                        this.comments.push({ id: doc.id, ...doc.data(), ref: doc.ref.path })
                     })
                 })
+        },
+        addNew (newMan) {
+            this.comments.push(newMan)
         }
     }
 }

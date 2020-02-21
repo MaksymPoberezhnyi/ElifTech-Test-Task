@@ -1,6 +1,7 @@
 <template>
     <div class="comment">
          <!-- view comments -->
+        <div>Published: {{ date }}</div>
         <div>Name: {{ comment.name }} </div>
         <div v-if="!isShowEdit">Comment: {{ text }}</div>
         <!-- editing mode -->
@@ -20,28 +21,27 @@
         <!-- view nested comments -->
         <div>
             <div class="d-flex justify-content-end align-items-center">
-                <button type="button" class="btn btn-outline-warning btn-sm mr-2 mt-2" id="toggle-btn" aria-expanded="false" data-toggle="collapse" @click="toggle">Close/Open reply</button>
+                <button v-if="nestedComments.length > 0" type="button" class="btn btn-outline-warning btn-sm mr-2 mt-2" id="toggle-btn" aria-expanded="false" data-toggle="collapse" @click="toggle">Close/Open reply</button>
             </div>
             <div :id="index" class="collapse">
-                <div class="comment comment--nested"
-                v-for="(nestedComment, index) in nestedComments"
-                :key="index"
-                :nestedComment="nestedComment"
-                >
-                    <div>Name: {{ nestedComment.name }}</div>
-                    <div v-if="!isShowEditNested">Comment: {{ nestedComment.text }}</div>
-                    <textarea class="form-control" name="" id="" v-else v-model="nestedComment.text" cols="30" rows="3"></textarea>
-                    <button class="btn btn-outline-success btn-sm mr-2 mt-2" v-if="isShowEditNested" @click="saveNestedComment(nestedComment)">Save</button>
-                    <button class="btn btn-outline-primary btn-sm mr-2 mt-2" @click="isShowEditNested = !isShowEditNested">{{ !isShowEditNested ? 'Edit' : 'Close' }}</button>
-                    <button class="btn btn-outline-danger btn-sm mt-2" @click="deleteNestedComment(nestedComment.id)">Delete</button>
-                </div> 
+                <NestedComment
+                    v-for="(nestedComment, index) in nestedComments"
+                    :key="index"
+                    :comment="nestedComment"
+                />
             </div>
         </div>   
     </div>
 </template>
 
 <script>
+
+import NestedComment from "@/components/comments/NestedComment.vue"
+
 export default {
+    components: {
+        NestedComment
+    },
     props: ["comment", "index"],
     data () {
         return {
@@ -49,15 +49,18 @@ export default {
             isShowEdit: false,
             isShowNested: false,
             isShowEditNested: false,
+            isShowNestedReply: false,
             nameReply: "",
             replyText: "",
             dbRef: this.$fb.collection("comments").doc(this.comment.id).collection("comments"),
             nestedComments: [],
             text: "",
+            date: ""
         }
     },
     created () {
         this.text = this.comment.text
+        this.date = moment(this.comment.createdAt.seconds * 1000).format('LLLL')
         this.getNestedComments()
     },
     mounted () {
@@ -68,10 +71,10 @@ export default {
             window.$('#' + this.index).collapse('toggle')
         },
         send () {
-            console.log(this.comment.id)
             this.dbRef.add({
 				name: this.nameReply,
                 text: this.replyText,
+                createdAt: new window.firebase.firestore.Timestamp.now().toDate()
 			})
 			.then(() => {
 				this.nameReply = ''
@@ -86,8 +89,7 @@ export default {
                 .get()
                 .then((querySnapshot) => {
                     querySnapshot.forEach((doc) => {
-                        console.log(doc.data())
-                        this.nestedComments.push({ id: doc.id, ...doc.data() })
+                        this.nestedComments.push({ id: doc.id, ...doc.data(), ref: doc.ref.path })
                     })
                 })
         },
@@ -95,17 +97,9 @@ export default {
             this.$fb.collection("comments").doc(this.comment.id)
             .delete()
             .then(() => {
-                console.log("deleted")
                 this.$destroy()
                 this.$el.parentNode.removeChild(this.$el)
             })
-        },
-        deleteNestedComment (id) {
-            this.dbRef.doc(id)
-            .delete()
-            .then(() => {
-                this.nestedComments = []
-                this.getNestedComments()})
         },
         saveComment () {
             this.$fb.collection("comments").doc(this.comment.id).update({
@@ -113,33 +107,19 @@ export default {
             }).then(() => {
                 this.isShowEdit = false
             })
-        },
-        saveNestedComment (nestedComment) {
-            this.$fb.collection("comments").doc(this.comment.id).collection("comments").doc(nestedComment.id).update({
-                text: nestedComment.text
-            }).then(() => {
-                this.isShowEditNested = false
-            })
         }
-        
     }
 }
 
 </script>
 
-<style scoped>
+<style>
     .comment {
         margin-bottom: 10px;
         padding: 10px;
         border: 1px solid #333;
         border-radius: 4px;
     }
-    .comment--nested {
-        margin: 10px 0 0 60px;
-        border: 0;
-        border-left: 1px solid #17a2b8;
-    }
-
     .collapse.in {
         display: block;
     }

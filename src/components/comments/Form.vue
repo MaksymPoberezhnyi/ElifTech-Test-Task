@@ -13,6 +13,9 @@
 </template>
 
 <script>
+
+import getComments from "@/components/comments/Index.vue"
+
 export default {
 	data () {
 		return {
@@ -21,16 +24,26 @@ export default {
 		}
 	}, 
 	methods: {
-			send () {
+		send () {
 			this.$fb.collection("comments").add({
 				name: this.name,
 				text: this.text,
 				createdAt: new window.firebase.firestore.Timestamp.now()
 			})
-			.then(() => {
+			.then(res => {
 				this.name = ''
 				this.text = ''
-				this.$emit("update")
+				this.getCreated(res.path)
+			})
+		},
+		getCreated (path) {
+			this.$fb.doc(path).get().then((res) => {
+				const newComment = {
+					id: res.id,
+					...res.data(),
+					ref: res.ref.path
+				}
+				this.$emit("addNew", newComment)
 			})
 		}
 	}
